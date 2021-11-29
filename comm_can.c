@@ -17,9 +17,15 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
     */
 
+//CUSTOM CODE: Adds Output Servo Signal According to CAN Message
+//CUSTOM CODE: Customize servo travel with conf_general.h
+//CUSTOM CODE: Must Set #define SERVO_OUT_ENABLE 1 in conf_general.h
+
 #include <string.h>
 #include <math.h>
 #include "comm_can.h"
+#include "general.h" //CUSTOM CODE: Required for MAX function
+#include "servo_simple.h"
 #include "ch.h"
 #include "hal.h"
 #include "stm32f4xx_conf.h"
@@ -400,6 +406,15 @@ void comm_can_set_pos(uint8_t controller_id, float pos) {
 	buffer_append_int32(buffer, (int32_t)(pos * 1000000.0), &send_index);
 	comm_can_transmit_eid_replace(controller_id |
 			((uint32_t)CAN_PACKET_SET_POS << 8), buffer, send_index, true);
+}
+
+// Custom Code
+void comm_can_set_brake_servo_pos(uint8_t controller_id, float pos) {
+	int32_t send_index = 0;
+	uint8_t buffer[4];
+	buffer_append_int32(buffer, (int32_t)(pos * 1000000.0), &send_index);
+	comm_can_transmit_eid_replace(controller_id |
+			((uint32_t)CAN_PACKET_SET_BRAKE_SERVO_POS << 8), buffer, send_index, true);
 }
 
 /**
@@ -1183,6 +1198,13 @@ static void decode_msg(uint32_t eid, uint8_t *data8, int len, bool is_replaced) 
 		case CAN_PACKET_SET_POS:
 			ind = 0;
 			mc_interface_set_pid_pos(buffer_get_float32(data8, 1e6, &ind));
+			timeout_reset();
+			break;
+
+		// Custom Code
+		case CAN_PACKET_SET_BRAKE_SERVO_POS:
+			ind = 0;
+			servo_simple_set_output(buffer_get_float32(data8, 1e2, &ind));
 			timeout_reset();
 			break;
 
